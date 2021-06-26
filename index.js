@@ -1,7 +1,7 @@
 const url = "http://localhost:8080";
 
 async function init() {
-  const id = "1624717795720";
+  const id = "run-1624717795720";
   const rawData = await loadRawData(id);
   const garminData = await loadGarminData(id);
 

@@ -19,9 +19,9 @@ async function init() {
   const rawModel = getModel(rawData);
   const garminModel = getModel(garminData);
   const filteredModel = getModel(filteredData);
-  console.log(rawModel);
-  console.log(garminModel);
-  console.log(filteredModel);
+  console.log("raw distance", rawModel.distance);
+  console.log("filtered distance", filteredModel.distance);
+  console.log("garmin distance", garminModel.distance);
 
   const map = new google.maps.Map(document.getElementById("map"), {
     zoom: 16,

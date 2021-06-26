@@ -1,7 +1,9 @@
 const url = "http://localhost:8080";
 
 async function init() {
-  const rawData = await loadCsvData("1624217927");
+  const id = "1624717795720";
+  const rawData = await loadRawData(id);
+  const garminData = await loadGarminData(id);
 
   const kalman = new Kalman();
   const filteredData = rawData.map((event) => {
@@ -14,35 +16,24 @@ async function init() {
     };
   });
 
+  const rawModel = getModel(rawData);
+  const garminModel = getModel(garminData);
+  const filteredModel = getModel(filteredData);
+  console.log(rawModel);
+  console.log(garminModel);
+  console.log(filteredModel);
+
   const map = new google.maps.Map(document.getElementById("map"), {
     zoom: 16,
     center: { lat: rawData[0].latitude, lng: rawData[0].longitude },
   });
 
-  new google.maps.Polyline({
-    path: rawData.map(({ latitude, longitude }) => ({
-      lat: latitude,
-      lng: longitude,
-    })),
-    geodesic: true,
-    strokeColor: "#FF0000",
-    strokeOpacity: 1.0,
-    strokeWeight: 2,
-  }).setMap(map);
-
-  new google.maps.Polyline({
-    path: filteredData.map(({ latitude, longitude }) => ({
-      lat: latitude,
-      lng: longitude,
-    })),
-    geodesic: true,
-    strokeColor: "#0000FF",
-    strokeOpacity: 1.0,
-    strokeWeight: 2,
-  }).setMap(map);
+  drawLine(map, rawData, "#FF0000");
+  drawLine(map, filteredData, "#0000FF");
+  drawLine(map, garminData, "#E55300");
 }
 
-async function loadCsvData(id) {
+async function loadRawData(id) {
   const text = await fetch(`${url}/data/${id}.csv`).then((res) => res.text());
 
   return text
@@ -53,9 +44,44 @@ async function loadCsvData(id) {
       date: parseInt(cols[0]),
       latitude: parseFloat(cols[2]),
       longitude: parseFloat(cols[3]),
-      elevation: parseFloat(cols[4]),
-      accuracy: parseFloat(cols[5]),
+      accuracy: parseFloat(cols[4]),
+      elevation: parseFloat(cols[5]),
+      elevationAccuracy: parseFloat(cols[6]),
+      speed: parseFloat(cols[7]),
+      speedAccuracy: parseFloat(cols[8]),
+      bearing: parseFloat(cols[9]),
+      bearingAccuracy: parseFloat(cols[10]),
     }));
+}
+
+async function loadGarminData(id) {
+  const data = await fetch(`${url}/data/${id}.geojson`).then((res) =>
+    res.json()
+  );
+
+  return data.features[0].geometry.coordinates[0].map(
+    ([longitude, latitude]) => ({
+      latitude,
+      longitude,
+    })
+  );
+}
+
+function drawLine(map, events, color) {
+  new google.maps.Polyline({
+    path: events.map(({ latitude, longitude }) => ({
+      lat: latitude,
+      lng: longitude,
+    })),
+    geodesic: true,
+    strokeColor: color,
+    strokeOpacity: 1.0,
+    strokeWeight: 2,
+  }).setMap(map);
+}
+
+function getModel(events) {
+  return events.reduce((model, event) => model.add(event), new Model());
 }
 
 class Kalman {
@@ -83,4 +109,40 @@ class Kalman {
 
     this.date = date;
   }
+}
+
+class Model {
+  latitude;
+  longitude;
+  distance = 0;
+
+  add({ latitude, longitude }) {
+    if (this.latitude && this.longitude) {
+      this.distance += getDistance(
+        this.latitude,
+        this.longitude,
+        latitude,
+        longitude
+      );
+    }
+
+    this.latitude = latitude;
+    this.longitude = longitude;
+
+    return this;
+  }
+}
+
+const earthRadius = 6371000.0;
+const degreesToRadians = Math.PI / 180;
+
+function getDistance(fromLatitude, fromLongitude, toLatitude, toLongitude) {
+  var dLat = (toLatitude - fromLatitude) * degreesToRadians;
+  var sLat = (toLatitude + fromLatitude) * degreesToRadians;
+  var dLng = (toLongitude - fromLongitude) * degreesToRadians;
+
+  return (
+    Math.sqrt(Math.pow(dLng * Math.cos(sLat / 2), 2) + dLat * dLat) *
+    earthRadius
+  );
 }

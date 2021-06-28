@@ -1,8 +1,9 @@
 const url = "http://localhost:8080";
 
 async function init() {
-  const id = "run-1624717795720";
-  const rawData = await loadRawData(id);
+  // const id = "run-1624717795720";
+  const id = "bike-1624295189"
+  const rawData = await loadOldRawData(id);
   const garminData = await loadGarminData(id);
 
   const kalman = new Kalman();
@@ -54,6 +55,22 @@ async function loadRawData(id) {
     }));
 }
 
+async function loadOldRawData(id) {
+  const text = await fetch(`${url}/data/${id}.csv`).then((res) => res.text());
+
+  return text
+    .split("\n")
+    .filter((line) => line)
+    .map((line) => line.split(";"))
+    .flatMap((cols) => ({
+      date: parseInt(cols[0]),
+      latitude: parseFloat(cols[2]),
+      longitude: parseFloat(cols[3]),
+      accuracy: parseFloat(cols[5]),
+      elevation: parseFloat(cols[4]),
+    }));
+}
+
 async function loadGarminData(id) {
   const data = await fetch(`${url}/data/${id}.geojson`).then((res) =>
     res.json()
@@ -85,7 +102,7 @@ function getModel(events) {
 }
 
 class Kalman {
-  qMps = 3;
+  qMps = 15;
   date;
   latitude;
   longitude;
